@@ -1,0 +1,796 @@
+@import 'tailwindcss';
+/* Pro's screens (a private plan) live outside the
+   renderer root Tailwind detects sources from: without this, every class only
+   the official build uses is never generated. The public tree has no pro/ - the
+   source is then empty. */
+@source '../../../../pro/renderer';
+@import 'tw-animate-css';
+@import '@fontsource-variable/inter';
+@import './code-highlight.css';
+
+@custom-variant dark (&:is(.dark *));
+/* Keyboard-focus variants (lib/workspace/focus-regions.ts sets
+   `data-focus-mode="keyboard" | "pointer"` on <html> from the last input).
+   Chrome's :focus-visible heuristic is unreliable for the programmatic focus
+   the region navigation does, so the focus visuals key on this instead:
+   kbd-focus = this element is focused during keyboard use; kbd-focus-within =
+   focus is inside it; region-kbd-focus = it sits in a focus region that holds
+   keyboard focus (the panel-header tint). */
+@custom-variant kbd-focus (&:where([data-focus-mode='keyboard'] *):focus);
+@custom-variant kbd-focus-within (&:where([data-focus-mode='keyboard'] *):focus-within);
+@custom-variant region-kbd-focus (&:where([data-focus-mode='keyboard'] [data-focus-region]:focus-within *));
+/* The focus frame: a 2px `--focus-frame` inset outline drawn OVER a section's
+   children (an ::after, so headers and rows can't cover it) that marks where a
+   focus-direction shortcut (⇧⌘Arrow) just put focus - the active pane, a dock
+   panel, the explorer, a drawer, the bottom panel. It shows for
+   `FOCUS_FLASH_MS` (3 s) after the press and then fades; a click ends it at
+   once, and nothing is framed while you simply work or use the mouse (user
+   decision 2026-09-22 - it used to stay on for as long as focus sat there,
+   and always on the active pane). It was 1px at 45% until the same day and
+   all but vanished on the light theme; the terminal slot's 8px padding keeps
+   the wider frame off the text. `focus-frame` reserves the pseudo-element on
+   every section; the rules below light it. It appears with no transition: a
+   section switched in by a session/project swap must be framed on its very
+   first frame (the stamp already names it), or the frame blinks. Only the end
+   of the flash fades. */
+:root {
+  --focus-frame-strength: 100%;
+}
+.dark {
+  --focus-frame-strength: 75%;
+}
+@utility focus-frame {
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+  }
+}
+/* Lit while `data-focus-flash` is on <html> (focus-regions.ts
+   `flashFocusFrame`), on the section named by the stamp `data-focus-in` (from
+   focusin/focusout): the region root carries the same id in
+   `data-focus-region`; the pane carries `focus-frame-pane`. Stamp-driven
+   rather than :focus-within so a view switched in by ↑/↓ is framed before its
+   row even takes focus. The lit pane also raises its active tab's focus bar
+   to 4px (`--focus-bar-height`, pane-tab-strip.tsx): the frame's top edge
+   covers the strip's top 2px, where the usual 2px bar sits. */
+@layer components {
+  /* Here, not in the @utility above: utilities outrank components, and the
+     lit rules below must override this opacity. */
+  .focus-frame::after {
+    opacity: 0;
+    /* Design token `--focus-frame` = primary at 100% light / 75% dark
+       (`--focus-frame-strength` above), mixed at the use site from the live
+       primary so it follows the theme AND an accent-colour override without a
+       second token to keep in sync. */
+    box-shadow: inset 0 0 0 2px
+      color-mix(in oklab, var(--color-primary) var(--focus-frame-strength), transparent);
+  }
+  :root[data-focus-flash][data-focus-in='projects']
+    [data-focus-region='projects'].focus-frame::after,
+  :root[data-focus-flash][data-focus-in='sessions']
+    [data-focus-region='sessions'].focus-frame::after,
+  :root[data-focus-flash][data-focus-in='tabs'] [data-focus-region='tabs'].focus-frame::after,
+  :root[data-focus-flash][data-focus-in='explorer']
+    [data-focus-region='explorer'].focus-frame::after,
+  :root[data-focus-flash][data-focus-in='drawer'] [data-focus-region='drawer'].focus-frame::after,
+  :root[data-focus-flash][data-focus-in='bottom'] [data-focus-region='bottom'].focus-frame::after,
+  :root[data-focus-flash][data-focus-in='surface'] .focus-frame-pane::after {
+    opacity: 1;
+  }
+  :root[data-focus-flash][data-focus-in='surface'] .focus-frame-pane {
+    --focus-bar-height: 4px;
+  }
+  :root:not([data-focus-flash]) .focus-frame::after {
+    transition: opacity 300ms ease-out;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   double0 design system
+   Source of truth: design/design_system.pen (theme axis "Mode": Light | Dark).
+   :root holds the Light palette, .dark the Dark palette. The app is dark-first
+   (see ThemeProvider, which sets .dark on <html> by default).
+   Design tokens are mapped onto the shadcn semantic names so the stock UI
+   utilities (bg-background, text-muted-foreground, bg-primary, …) resolve to
+   design values, and the design-specific tokens are exposed as their own
+   utilities (bg-surface, text-foreground-muted, border-border-strong, …).
+--------------------------------------------------------------------------- */
+
+/* Fonts live in a non-inline @theme block so `font-sans`/`font-mono` compile to
+   var() references: the app-font setting (Settings → General) re-points these
+   variables on <html>, and the File explorer / Changes overrides re-point them
+   on their surface roots (see ui-font-settings.ts). The terminal and editor set
+   their fonts inline from their own settings and stay unaffected.
+   The built-in sans is the OS UI font - nothing is bundled for it; it is the
+   same stack as the `system-sans` family in ui-font-settings.ts (a test keeps
+   the two equal). Inter is bundled (@fontsource-variable/inter above) only as
+   an opt-in choice. */
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+
+  /* All UI text follows the app font size: ui-font-settings.ts writes
+     `--ui-font-scale` (app size ÷ 12, the size the design is authored at) on
+     <html> before first paint - 14 ÷ 12 for the built-in size, so the `, 1`
+     fallback below only covers a document that never ran initAppFont. The
+     named sizes scale here; arbitrary px text classes carry the same factor
+     inline (text-[length:calc(13px*var(--ui-font-scale,1))]). Terminal and
+     editor content set their fonts inline from their own settings and stay
+     fixed. */
+  --text-xs: calc(0.75rem * var(--ui-font-scale, 1));
+  --text-sm: calc(0.875rem * var(--ui-font-scale, 1));
+  --text-base: calc(1rem * var(--ui-font-scale, 1));
+  --text-lg: calc(1.125rem * var(--ui-font-scale, 1));
+  --text-xl: calc(1.25rem * var(--ui-font-scale, 1));
+  --text-2xl: calc(1.5rem * var(--ui-font-scale, 1));
+}
+
+@theme inline {
+  /* Radius scale (design: sm 4 / md 6 / lg 8 / xl 12) */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* shadcn semantic colors -> design tokens */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--surface-elevated);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--foreground-muted);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Design-system tokens exposed as first-class utilities */
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-foreground-subtle: var(--foreground-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-primary-hover: var(--primary-hover);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  /* Live-row bands (lib/session/live-band.ts): a status colour at 12%, laid
+     over a row that hosts running / blocked work */
+  --color-running-band: var(--running-band);
+  --color-needs-input-band: var(--needs-input-band);
+  --color-finished-band: var(--finished-band);
+  /* Merge-conflict sides (the merge view): A = ours/HEAD, B = incoming */
+  --color-merge-a: var(--merge-a);
+  --color-merge-b: var(--merge-b);
+  /* Tag ref chips (Changes graph) - a cyan deliberately outside the lane palette */
+  --color-tag: var(--tag);
+  /* Stash nodes (Changes graph) - a violet of their own: ring dot, lane, pill */
+  --color-stash: var(--stash);
+
+  /* Electric (moss-green) ramp */
+  --color-electric-50: var(--electric-50);
+  --color-electric-100: var(--electric-100);
+  --color-electric-200: var(--electric-200);
+  --color-electric-300: var(--electric-300);
+  --color-electric-400: var(--electric-400);
+  --color-electric-500: var(--electric-500);
+  --color-electric-600: var(--electric-600);
+  --color-electric-700: var(--electric-700);
+  --color-electric-800: var(--electric-800);
+  --color-electric-900: var(--electric-900);
+}
+
+:root {
+  /* Light */
+  --background: #fafafa;
+  --foreground: #0a0a0a;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --muted: #f4f4f5;
+  --foreground-muted: #71717a;
+  --foreground-subtle: #a1a1aa;
+  --border: #e5e5e5;
+  --border-strong: #d4d4d8;
+  --input: #ffffff;
+  --primary: #7da82f;
+  --primary-foreground: #ffffff;
+  --primary-hover: #5f8525;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --accent: #f7fae8;
+  --accent-foreground: #4a661f;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --ring: #7da82f;
+  --success: #10b981;
+  --warning: #f59e0b;
+  /* Information, not urgency: the "finished, not yet seen" session dot */
+  --info: #3b82f6;
+  --running-band: #10b9811f;
+  --needs-input-band: #f59e0b1f;
+  --finished-band: #3b82f61f;
+  --merge-a: #0e7490;
+  --merge-b: #b45309;
+  --tag: #0891b2;
+  --stash: #7c3aed;
+
+  /* Scrollbar thumb per background tone (mode-independent). Surfaces with
+     their own palette (editor, terminal) re-point --scrollbar-thumb at one of
+     these so the thumb tracks the surface background, not the app mode. */
+  --scrollbar-thumb-on-light: #0a0a0a4d;
+  --scrollbar-thumb-on-light-hover: #0a0a0a73;
+  --scrollbar-thumb-on-dark: #fafafa4d;
+  --scrollbar-thumb-on-dark-hover: #fafafa73;
+  --scrollbar-thumb: var(--scrollbar-thumb-on-light);
+  --scrollbar-thumb-hover: var(--scrollbar-thumb-on-light-hover);
+
+  /* Electric ramp (mode-independent) */
+  --electric-50: #f7fae8;
+  --electric-100: #eaf1c3;
+  --electric-200: #d4e290;
+  --electric-300: #bbd054;
+  --electric-400: #a8c945;
+  --electric-500: #7da82f;
+  --electric-600: #5f8525;
+  --electric-700: #4a661f;
+  --electric-800: #364a18;
+  --electric-900: #233211;
+}
+
+.dark {
+  /* Dark (default) */
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --surface: #111114;
+  --surface-elevated: #16161b;
+  --muted: #1a1a1f;
+  --foreground-muted: #a1a1aa;
+  --foreground-subtle: #52525b;
+  --border: #262629;
+  --border-strong: #3f3f46;
+  --input: #0f0f12;
+  --primary: #a8c945;
+  --primary-foreground: #1f2d0c;
+  --primary-hover: #bbd054;
+  --secondary: #1a1a1f;
+  --secondary-foreground: #fafafa;
+  --accent: #1f2d0c;
+  --accent-foreground: #d4e290;
+  --destructive: #f87171;
+  --destructive-foreground: #ffffff;
+  --ring: #a8c945;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --info: #60a5fa;
+  --running-band: #34d3991f;
+  --needs-input-band: #fbbf241f;
+  --finished-band: #60a5fa1f;
+  --merge-a: #22d3ee;
+  --merge-b: #fbbf24;
+  --tag: #22d3ee;
+  --stash: #a78bfa;
+
+  --scrollbar-thumb: var(--scrollbar-thumb-on-dark);
+  --scrollbar-thumb-hover: var(--scrollbar-thumb-on-dark-hover);
+}
+
+body {
+  @apply m-0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* Custom scrollbars (design: Scrollbar/Vertical + Scrollbar/Horizontal).
+   Styling ::-webkit-scrollbar replaces Chromium's native scrollbars app-wide,
+   including the CodeMirror scroller: 10px gutter, 6px pill thumb - the inset
+   comes from the 2px transparent border + padding-box clip - over an
+   invisible track. The thumb is hidden until the pointer enters the scrolling
+   element (the gutter keeps its space, so nothing shifts). */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-color: transparent;
+  background-clip: padding-box;
+}
+:hover::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+}
+/* :active keeps the thumb visible while it's dragged outside the element. */
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--scrollbar-thumb-hover);
+}
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* xterm 6 draws its own DOM scrollbar (VS Code's scrollable element), out of
+   reach of the ::-webkit-scrollbar rules. Its colors ride the terminal theme
+   (scrollbarSlider* in resolveTerminalTheme); these rules reshape the slider
+   into the same 6px pill and hide it until the terminal is hovered, like the
+   webkit thumbs. xterm's gutter is 14px (`overviewRuler?.width || 14`), so
+   the asymmetric border leaves the pill 2px off the right edge.
+
+   Specificity matters: xterm injects `.slider`, `.slider:hover`, and
+   `.slider.active` rules whose `background` SHORTHAND resets background-clip
+   to border-box (= the fat 14px thumb). The extra `.vertical` out-ranks the
+   injected base rule, but the injected :hover/.active rules tie with that and
+   win on document order - so each state is spelled out here, one class above
+   its injected counterpart. */
+.xterm .xterm-scrollable-element > .scrollbar.vertical > .slider,
+.xterm .xterm-scrollable-element > .scrollbar.vertical > .slider:hover,
+.xterm .xterm-scrollable-element > .scrollbar.vertical > .slider.active {
+  border-style: solid;
+  border-color: transparent;
+  border-width: 2px 2px 2px 6px;
+  border-radius: 9999px;
+  background-clip: padding-box;
+}
+/* Hidden until the pointer is over the terminal, like the app-wide
+   `:hover::-webkit-scrollbar-thumb`; `.active` keeps it visible while the
+   slider is dragged outside the terminal, like the webkit `:active` rule. */
+.xterm .xterm-scrollable-element > .scrollbar.vertical > .slider {
+  opacity: 0;
+}
+.xterm:hover .xterm-scrollable-element > .scrollbar.vertical > .slider,
+.xterm .xterm-scrollable-element > .scrollbar.vertical > .slider.active {
+  opacity: 1;
+}
+
+/* The Inputs list's jump target (lib/terminal/inputs.ts): an xterm decoration
+   over the input's rows that washes in the accent and fades. Above the text
+   layer, so it tints rather than hides. */
+.xterm .terminal-input-flash {
+  background-color: color-mix(in oklab, var(--primary) 30%, transparent);
+  pointer-events: none;
+  animation: terminal-input-flash 1.2s ease-out forwards;
+}
+@keyframes terminal-input-flash {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+code {
+  font-family: var(--font-mono);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+  /* The header is the window's title bar (components/title-bar.tsx) and drags
+     the window; a drag region swallows clicks, so its controls opt out. */
+  [data-titlebar]
+    :is(button, a, input, select, textarea, [role='button'], [role='combobox'], [data-no-drag]) {
+    -webkit-app-region: no-drag;
+  }
+}
+
+/* Live status dot (status-dot.tsx): the small round dot that marks a session
+   which is working, or waiting on you. The core breathes while a soft halo
+   swells out of it and fades - a slow ping with a rest beat, so a sidebar full
+   of live sessions reads as calm rather than flickering.
+
+   The halo is an absolutely positioned ::after that inherits the dot's own
+   background, so ONE class covers every status color (success, warning, …) and
+   nothing it does can move the layout. Keep the two cycles equal in length -
+   they're one motion, not two.
+
+   Under prefers-reduced-motion the dot sits still: the color alone still tells
+   the state, so nothing is lost. */
+@keyframes status-dot-core {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.62;
+  }
+}
+@keyframes status-dot-halo {
+  0% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  /* Faded out well before the cycle ends - the remaining stretch is the rest
+     beat, and the snap back to scale(1) happens at opacity 0, unseen. */
+  70%,
+  100% {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+.status-dot-live {
+  position: relative;
+  animation: status-dot-core 2.4s ease-in-out infinite;
+}
+.status-dot-live::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: inherit;
+  animation: status-dot-halo 2.4s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-dot-live {
+    animation: none;
+  }
+  .status-dot-live::after {
+    display: none;
+  }
+}
+
+/* Live row band (lib/session/live-band.ts): the row-sized companion of the
+   status dot. A row that hosts running work - a tab whose terminal is busy,
+   the session any of its tabs belongs to, the project any of its sessions
+   belongs to - is washed with the status colour at 12% (the --running-band /
+   --needs-input-band tokens, per theme), and the wash breathes 1 → 0.45 → 1 on
+   the SAME 2.4s cycle as the dot, so a row and its dot read as one motion, not
+   two things blinking.
+
+   The wash is an ::after laid over the row's own background (isolation +
+   z-index -1 keeps it under the text and the dot) and inherits the radius, so
+   it composes with any state the row already has - selected (accent), hover,
+   the active tab's background - and can't move the layout or eat pointer
+   events.
+
+   Under prefers-reduced-motion the band holds still at full tint: the colour
+   alone still says something is happening here. */
+@keyframes live-band {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+.live-band {
+  position: relative;
+  isolation: isolate;
+}
+.live-band::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--live-band-color);
+  pointer-events: none;
+  animation: live-band 2.4s ease-in-out infinite;
+}
+.live-band-running {
+  --live-band-color: var(--running-band);
+}
+.live-band-needs-input {
+  --live-band-color: var(--needs-input-band);
+}
+/* Finished-unseen tab wash: static - the breathing bands mean "happening now",
+   and a finished tab sits still like its session's blue dot. */
+.live-band-finished {
+  --live-band-color: var(--finished-band);
+}
+.live-band-finished::after {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-band::after {
+    animation: none;
+  }
+}
+
+/* Settings → General → "Animate live status" (lib/settings/live-motion-settings.ts):
+   `data-live-motion` on <html>. Measured on the demo world, the endless
+   cycles above kept the GPU process at ~25-30% of a core while any session
+   was live.
+
+   The waiting state runs on copies of the keyframes: a dot or band that goes
+   from working to waiting on you changes its animation name, which restarts
+   it - so "only on change" pulses again exactly then. Inside no-preference
+   only: the reduced-motion rules above are less specific, and these would
+   switch the motion back on. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes status-dot-core-wait {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.62;
+    }
+  }
+  @keyframes status-dot-halo-wait {
+    0% {
+      transform: scale(1);
+      opacity: 0.45;
+    }
+    70%,
+    100% {
+      transform: scale(2.8);
+      opacity: 0;
+    }
+  }
+  @keyframes live-band-wait {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
+  }
+  .status-dot-live.bg-warning {
+    animation-name: status-dot-core-wait;
+  }
+  .status-dot-live.bg-warning::after {
+    animation-name: status-dot-halo-wait;
+  }
+  .live-band-needs-input::after {
+    animation-name: live-band-wait;
+  }
+}
+/* "Reduced" (`change`, the default - user decision 2026-11-05): a few pulses
+   when a dot or band turns live or switches between working and waiting,
+   then still - every keyframe set ends where the element rests (core and
+   band at full strength, halo faded). Never keep any of them going: one
+   endless animation makes the whole window redraw every frame - waiting
+   sessions breathing on alone still cost 39% of the GPU process against 44%
+   for everything and 1% for nothing (demo world, measured). */
+html[data-live-motion='change'] .status-dot-live,
+html[data-live-motion='change'] .status-dot-live::after,
+html[data-live-motion='change'] .live-band::after {
+  animation-iteration-count: 3;
+}
+html[data-live-motion='off'] .status-dot-live,
+html[data-live-motion='off'] .live-band::after {
+  animation: none;
+}
+html[data-live-motion='off'] .status-dot-live::after {
+  display: none;
+}
+
+/* Monaco file-editor git gutter (monaco-git-gutter.ts): decorations in the
+   lines-decorations margin - a colored bar on added/modified lines, a wedge
+   where lines were deleted. Same geometry as the previous CodeMirror gutter. */
+.monaco-editor .m-git-mark {
+  width: 3px !important;
+  margin-left: 2px;
+  border-radius: 1px;
+}
+/* Hovering the gutter on a change widens its whole bar (m-git-hover is applied
+   to every line of the hovered change by monaco-git-gutter.ts) - a bigger
+   target for the revert-popover click. */
+.monaco-editor .m-git-mark.m-git-hover {
+  width: 7px !important;
+}
+.monaco-editor .m-git-added {
+  background: var(--success);
+}
+.monaco-editor .m-git-modified {
+  background: var(--warning);
+}
+.monaco-editor .m-git-deleted-below::after,
+.monaco-editor .m-git-deleted-above::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 5px solid var(--destructive);
+}
+.monaco-editor .m-git-deleted-below::after {
+  bottom: -4px;
+}
+.monaco-editor .m-git-deleted-above::before {
+  top: -4px;
+}
+.monaco-editor .m-git-hover.m-git-deleted-below::after,
+.monaco-editor .m-git-hover.m-git-deleted-above::before {
+  border-top-width: 6px;
+  border-bottom-width: 6px;
+  border-left-width: 8px;
+}
+.monaco-editor .m-git-hover.m-git-deleted-below::after {
+  bottom: -6px;
+}
+.monaco-editor .m-git-hover.m-git-deleted-above::before {
+  top: -6px;
+}
+
+/* Gutter marks are clickable (revert popover). */
+.monaco-editor .m-git-mark {
+  cursor: pointer;
+}
+
+/* Windows + light terminal (pool.ts › markLightTerminalPointer): the system
+   I-beam inverts and vanished over the xterm canvas - a dark I-beam with a
+   light outline reads on any background. xterm's own pointer / crosshair /
+   mouse-capture cursors are left alone. */
+html[data-terminal-light-pointer]
+  .xterm:not(.enable-mouse-events):not(.xterm-cursor-pointer):not(.column-select) {
+  cursor:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='20' viewBox='0 0 12 20'%3E%3Cpath d='M3 1.5h6M6 1.5v17M3 18.5h6' fill='none' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3Cpath d='M3 1.5h6M6 1.5v17M3 18.5h6' fill='none' stroke='black' stroke-width='1'/%3E%3C/svg%3E")
+      6 10,
+    text;
+}
+
+/* Settings-as-JSON find bar highlights (settings-json-dialog.tsx). */
+.monaco-editor .m-search-hl {
+  background: #f59e0b33;
+  border-radius: 2px;
+}
+.monaco-editor .m-search-hl-active {
+  background: #f59e0b66;
+  border-radius: 2px;
+  outline: 1px solid #f59e0b99;
+}
+
+/* Rendered markdown (the editor's preview, an extension's agent answers):
+   plain HTML elements from a markdown renderer. Sizes are em-relative so they
+   follow the container's own (app-font-scaled) size. */
+/* Nothing in it may widen its column: long paths and links break, wide
+   tables and code blocks scroll inside themselves. */
+.rendered-markdown {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.rendered-markdown pre,
+.rendered-markdown table {
+  max-width: 100%;
+}
+.rendered-markdown table {
+  display: block;
+  overflow-x: auto;
+}
+.rendered-markdown pre code,
+.rendered-markdown table {
+  overflow-wrap: normal;
+}
+.rendered-markdown > :first-child {
+  margin-top: 0;
+}
+.rendered-markdown > :last-child {
+  margin-bottom: 0;
+}
+.rendered-markdown p,
+.rendered-markdown ul,
+.rendered-markdown ol,
+.rendered-markdown pre,
+.rendered-markdown blockquote,
+.rendered-markdown table {
+  margin: 0.6em 0;
+}
+.rendered-markdown h1,
+.rendered-markdown h2,
+.rendered-markdown h3,
+.rendered-markdown h4 {
+  margin: 1em 0 0.4em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.rendered-markdown h1 {
+  font-size: 1.3em;
+}
+.rendered-markdown h2 {
+  font-size: 1.15em;
+}
+.rendered-markdown h3,
+.rendered-markdown h4 {
+  font-size: 1em;
+}
+.rendered-markdown ul {
+  list-style: disc;
+  padding-left: 1.4em;
+}
+.rendered-markdown ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+}
+.rendered-markdown li + li {
+  margin-top: 0.2em;
+}
+.rendered-markdown a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.rendered-markdown code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  border-radius: 4px;
+  background: var(--muted);
+  padding: 0.1em 0.35em;
+}
+.rendered-markdown pre {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--muted);
+  padding: 0.6em 0.8em;
+  line-height: 1.45;
+}
+.rendered-markdown pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.92em;
+}
+.rendered-markdown blockquote {
+  border-left: 2px solid var(--border-strong);
+  padding-left: 0.8em;
+  color: var(--foreground-muted);
+}
+.rendered-markdown table {
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+.rendered-markdown th,
+.rendered-markdown td {
+  border: 1px solid var(--border);
+  padding: 0.25em 0.6em;
+  text-align: left;
+}
+.rendered-markdown hr {
+  margin: 1em 0;
+  border-color: var(--border);
+}
+
+/* Browser tabs (a private plan): a <webview> page runs in
+   another process and swallows pointer events, so a tab drag or a divider
+   drag passing over one would freeze. While either is in progress the pages
+   let the pointer through. */
+body:has([data-tab-dragging]) webview,
+body:has([data-separator='active']) webview {
+  pointer-events: none;
+}
+
+/* Hover-scrolled text (components/hover-scroll-text.tsx): truncated at rest;
+   while the component slides it (`data-scrolling`, set only while its row is
+   hovered and the text overflows) the ellipsis lifts and the text becomes a
+   box the animation can move. The motion itself is a Web Animation there. */
+[data-hover-scroll][data-scrolling] {
+  text-overflow: clip;
+}
+[data-hover-scroll][data-scrolling] > [data-hover-scroll-text] {
+  display: inline-block;
+}

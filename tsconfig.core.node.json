@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.node.json",
+  "include": ["electron.vite.config.*", "src/main/**/*", "src/preload/**/*"],
+  "compilerOptions": {
+    "paths": {
+      "@renderer/*": ["./src/renderer/src/*"],
+      "@main/*": ["./src/main/*"],
+      "@pro/main": ["./src/pro-stub/main.ts"],
+      "@pro/preload": ["./src/pro-stub/preload.ts"],
+      "@pro/daemon": ["./src/pro-stub/daemon.ts"]
+    }
+  }
+}

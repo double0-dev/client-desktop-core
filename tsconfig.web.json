@@ -1,0 +1,23 @@
+{
+  "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
+  "include": [
+    "src/renderer/src/env.d.ts",
+    "src/renderer/src/**/*",
+    "src/renderer/src/**/*.tsx",
+    "src/preload/*.d.ts",
+    "pro/renderer/**/*"
+  ],
+  "compilerOptions": {
+    "composite": true,
+    "noImplicitAny": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@renderer/*": ["./src/renderer/src/*"],
+      "@main/*": ["./src/main/*"],
+      "@pro/renderer": ["./pro/renderer/index.ts", "./src/pro-stub/renderer.ts"],
+      "@pro/preload": ["./pro/preload/index.ts", "./src/pro-stub/preload.ts"],
+      "@tanstack/ai-react/ui": ["./node_modules/@tanstack/ai-react/dist/esm/ui.d.ts"],
+      "@tanstack/highlight/*": ["./node_modules/@tanstack/highlight/dist/*"]
+    }
+  }
+}

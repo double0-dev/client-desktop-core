@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "src/renderer/src/env.d.ts",
+    "src/renderer/src/**/*",
+    "src/renderer/src/**/*.tsx",
+    "src/preload/*.d.ts"
+  ],
+  "compilerOptions": {
+    "paths": {
+      "@renderer/*": ["./src/renderer/src/*"],
+      "@main/*": ["./src/main/*"],
+      "@pro/renderer": ["./src/pro-stub/renderer.ts"],
+      "@pro/preload": ["./src/pro-stub/preload.ts"],
+      "@tanstack/ai-react/ui": ["./node_modules/@tanstack/ai-react/dist/esm/ui.d.ts"],
+      "@tanstack/highlight/*": ["./node_modules/@tanstack/highlight/dist/*"]
+    }
+  }
+}

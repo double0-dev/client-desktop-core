@@ -1,0 +1,1 @@
+ALTER TABLE "agent_sessions" ADD COLUMN "auto_named" boolean DEFAULT false NOT NULL;

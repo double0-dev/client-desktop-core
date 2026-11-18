@@ -1,0 +1,14 @@
+{
+  "files": [],
+  "references": [{ "path": "./tsconfig.node.json" }, { "path": "./tsconfig.web.json" }],
+  "compilerOptions": {
+    "paths": {
+      "@renderer/*": ["./src/renderer/src/*"],
+      "@main/*": ["./src/main/*"],
+      "@pro/main": ["./pro/main/index.ts", "./src/pro-stub/main.ts"],
+      "@pro/preload": ["./pro/preload/index.ts", "./src/pro-stub/preload.ts"],
+      "@pro/renderer": ["./pro/renderer/index.ts", "./src/pro-stub/renderer.ts"],
+      "@pro/daemon": ["./pro/daemon/index.ts", "./src/pro-stub/daemon.ts"]
+    }
+  }
+}

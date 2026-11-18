@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>double0</title>
+    <!-- CSP arrives via response headers (src/main/index.ts): header injection on
+         the Vite dev server in dev, the app:// protocol handler in production. -->
+    <!-- The first paint can land before main.tsx applies the `dark` class, and
+         globals.css paints the light background until it does. Main opens the
+         window with the native appearance set to the last-run theme
+         (src/main/theme-hint.ts), so the media query already knows it. -->
+    <style>
+      @media (prefers-color-scheme: dark) {
+        html:not(.dark) body {
+          background: #0a0a0a;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

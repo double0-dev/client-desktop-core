@@ -1,0 +1,35 @@
+diff --git a/src/unix/pty.cc b/src/unix/pty.cc
+index 2c99536..d53f65e 100644
+--- a/src/unix/pty.cc
++++ b/src/unix/pty.cc
+@@ -58,6 +58,7 @@
+ #include <stdint.h>
+ #elif defined(__APPLE__)
+ #include <libproc.h>
++#include <mach/mach.h>
+ #include <os/availability.h>
+ #include <paths.h>
+ #include <spawn.h>
+@@ -768,6 +769,22 @@ pty_posix_spawn(char** argv, char** env,
+     goto done;
+   }
+ 
++  /* Give the child none of our task exception ports. They are inherited
++   * across posix_spawn and exec, so under a host that holds them (an Electron
++   * app's crash handler) every program run in the terminal would crash into
++   * that handler, not the system's crash reporter. EXC_MASK_ALL leaves out
++   * EXC_MASK_CRASH and EXC_MASK_CORPSE_NOTIFY, the ones a crash handler
++   * holds, so they are named too. */
++  *err = posix_spawnattr_setexceptionports_np(&attrs,
++                                              EXC_MASK_ALL | EXC_MASK_CRASH |
++                                                  EXC_MASK_CORPSE_NOTIFY,
++                                              MACH_PORT_NULL,
++                                              EXCEPTION_DEFAULT,
++                                              THREAD_STATE_NONE);
++  if (*err != 0) {
++    goto done;
++  }
++
+   do
+     *err = posix_spawn(pid, argv[0], &acts, &attrs, argv, env);
+   while (*err == EINTR);

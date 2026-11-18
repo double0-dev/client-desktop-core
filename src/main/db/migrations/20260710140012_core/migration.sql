@@ -1,0 +1,1 @@
+ALTER TABLE "agent_sessions" ALTER COLUMN "label" SET DATA TYPE varchar(64) USING "label"::varchar(64);

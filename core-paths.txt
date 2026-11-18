@@ -1,0 +1,84 @@
+# Core: what the public version is made of (a private plan
+# › decisions 13 and 14). An allowlist - a file not matched here is Pro, is
+# never exported and may not be imported by core. Add a path on purpose.
+#
+# Every source file still in src/ is core: Pro code left src/ for pro/ as each
+# milestone moved it (src/ itself is never renamed). The dry-run export
+# (scripts/export-core.mjs, M8) copies exactly the tracked files these globs
+# match, and scripts/export-check.mjs scans that tree before anything builds it.
+src/**
+
+# The root configs the core tree installs, typechecks, lints, tests and builds
+# with. electron-builder.yml (the official packaging) and .env.example (the
+# release secrets' names) stay private.
+package.json
+pnpm-lock.yaml
+# pnpm.patchedDependencies in package.json names these; an install fails without them.
+patches/**
+.npmrc
+.gitignore
+.gitattributes
+.prettierignore
+.prettierrc.yaml
+components.json
+drizzle.config.ts
+electron.vite.config.ts
+eslint.config.mjs
+tsconfig.json
+tsconfig.node.json
+tsconfig.web.json
+tsconfig.core.node.json
+tsconfig.core.web.json
+tsr.config.json
+vitest.config.ts
+electron-builder.core.yml
+core-paths.txt
+README.md
+# The core's licence: Apache-2.0 (user decision 2026-11-08). It covers what this
+# list exports; the official build keeps pro/ proprietary in the private repository.
+LICENSE
+# The copyright line and the MIT notices of the two patched packages (patches/).
+NOTICE
+
+# Docs, the agent rules and the changelog stay private for now (user decision
+# 2026-11-06): the official build/ (every plan and reference doc, moved there
+# 2026-11-07), .claude/ and releases/ are not exported. README.md and LICENSE
+# are the public tree's only documents.
+
+# No workflow is exported (user decision 2026-11-18): the public repository
+# takes no pull requests and gets only the export, which runs the core gate on
+# the copy before it pushes - CI there would repeat it. quality-core.yml stays
+# a manual workflow in this repository.
+
+# The app's icons (main/app-icon.ts imports them; postinstall stamps the dev
+# Electron.app with build/icon-dev.png).
+resources/icon.png
+resources/icon-dev.png
+build/icon.png
+build/icon-dev.png
+
+# Build helpers core's own build and tests read.
+scripts/main-env.mjs
+scripts/pro-paths.mjs
+scripts/core-run.mjs
+scripts/extension-step.mjs
+scripts/pro-boundary.mjs
+scripts/main-env.d.mts
+scripts/pro-paths.d.mts
+scripts/pro-boundary.d.mts
+scripts/check-main-bundle.mjs
+scripts/check-app-asar.mjs
+scripts/check-app-asar.d.mts
+scripts/third-party-notices.mjs
+scripts/third-party-notices.d.mts
+scripts/dev-app-icon.mjs
+scripts/dev-app-icon.sh
+scripts/derive-dev-icon.py
+scripts/export-core.mjs
+scripts/export-core.d.mts
+scripts/export-check.mjs
+scripts/export-check.d.mts
+
+# The agent CLI probes the hook and theme mappings are verified with.
+scripts/probe-*.py
+

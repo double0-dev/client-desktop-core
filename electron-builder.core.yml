@@ -1,0 +1,66 @@
+# Packaging for the open-source build (a private plan ›
+# decision 12): what `pnpm package:core` runs after `pnpm build:core`. Unsigned,
+# no update feed, no protocol of the official app - a different app from the
+# official double0, with its own id, data folder (`double0-desktop-core`, set at
+# runtime by src/main/app-env.ts) and link scheme. Named "double0 Core" for now
+# (user decision 2026-11-07); the app id stays, so its data never moves.
+appId: com.double0.desktop.core
+productName: double0 Core
+protocols:
+  - name: double0 Core
+    schemes:
+      - com.double0.desktop-core
+directories:
+  buildResources: build
+  # Its own folder: dist/ holds the official build's packages in the private
+  # tree. Only the configured output folder is excluded by electron-builder,
+  # so the files list below excludes dist/ by name too.
+  output: dist-core
+files:
+  # An include first: with only exclusions electron-builder adds its own
+  # `!**/node_modules/**`.
+  - '**/*'
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,tsconfig.core.node.json,tsconfig.core.web.json,core-paths.txt}'
+  - '!{.github,scripts,coverage,out/*.tsbuildinfo}/**'
+  - '!{components.json,drizzle.config.ts,eslint.config.mjs,tsr.config.json,vitest.config.ts,tsconfig.web.tsbuildinfo,.eslintcache}'
+  - '!electron-builder*.yml'
+  - '!{dist,dist-core}/**'
+  - '!**/*.map'
+  # Never runs and is aliased away in the bundles; its LGPL would otherwise
+  # ship (src/renderer/src/lib/monaco/jschardet-stub.ts, check-app-asar.mjs › LEFT_OUT).
+  - '!**/node_modules/jschardet/**'
+asarUnpack:
+  - resources/**
+  # PGlite ships a WASM build + data files that can't be read from inside an asar.
+  - '**/node_modules/@electric-sql/pglite/**'
+extraResources:
+  # The drizzle migrations as a plain folder in Resources - the migrator reads
+  # them at runtime (src/main/db/migrate.ts); a package without them cannot
+  # open its database.
+  - from: src/main/db/migrations
+    to: migrations
+win:
+  executableName: double0-core
+  target:
+    - nsis
+mac:
+  category: public.app-category.productivity
+  target:
+    - dmg
+  # Unsigned: a build you make yourself is never quarantined on your machine.
+  identity: null
+linux:
+  target:
+    - AppImage
+    - deb
+  maintainer: double0
+  category: Utility
+  synopsis: Agentic workspace for coding agents
+# The terminal's pty module compiles on the machine that packages.
+npmRebuild: true
+publish: null

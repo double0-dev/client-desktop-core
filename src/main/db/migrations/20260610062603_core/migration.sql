@@ -1,0 +1,1 @@
+CREATE INDEX "agent_sessions_projectId_idx" ON "agent_sessions" ("projectId");
