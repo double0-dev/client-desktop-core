@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   afterProjectDeleted,
+  freshStartTarget,
   noProjectTarget,
   pickProjectSession,
   projectOpenTarget,
@@ -187,6 +188,19 @@ describe('noProjectTarget', () => {
     });
     expect(noProjectTarget('gone', [], [], null, none)).toEqual({ to: '/workspace' });
   });
+
+  it("heals into the top project's session list when the window starts fresh", () => {
+    // The projects loaded after the fresh start had landed on the bare
+    // workspace (empty snapshot, or its 2 s timeout): healing into the
+    // remembered session reopened the very view that crashed the window.
+    const projects = [project('p1'), project('p2', { sortOrder: 1 })];
+    const sessions = [session('s2', 'p2')];
+    expect(noProjectTarget(null, projects, sessions, 'p2', () => 's2', true)).toEqual({
+      to: '/workspace/$projectId',
+      params: { projectId: 'p1' },
+    });
+    expect(noProjectTarget(null, [], [], 'p2', () => 's2', true)).toBeNull();
+  });
 });
 
 describe('afterProjectDeleted', () => {
@@ -205,5 +219,22 @@ describe('afterProjectDeleted', () => {
     expect(afterProjectDeleted('gone', [project('gone')], [], 'gone', none)).toEqual({
       to: '/workspace',
     });
+  });
+});
+
+describe('freshStartTarget', () => {
+  // A window that starts fresh (lib/start-fresh.ts) after crashing as it
+  // opened: the remembered project and session may be what crashed it.
+  it("opens the top project's session list, whatever was remembered", () => {
+    expect(
+      freshStartTarget([project('b', { sortOrder: 2 }), project('a', { sortOrder: 1 })]),
+    ).toEqual({
+      to: '/workspace/$projectId',
+      params: { projectId: 'a' },
+    });
+  });
+
+  it('opens the no-project workspace with no project', () => {
+    expect(freshStartTarget([])).toEqual({ to: '/workspace' });
   });
 });

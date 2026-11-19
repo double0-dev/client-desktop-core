@@ -17,6 +17,7 @@ import {
 import { confirmDialog } from '@renderer/components/ui/confirm-dialog';
 import { isSessionDirty } from '@renderer/lib/session/dirty';
 import { OpenInEditorSubmenu } from '@renderer/routes/_app/-components/workspace/open-in-editor-menu';
+import { SlotBoundary } from '@renderer/components/slot-boundary';
 import { rendererExtension } from '@renderer/lib/extension/registry';
 import { MENU_ITEM_CLASS as ITEM_CLASS } from '@renderer/routes/_app/-components/workspace/session-menu-style';
 
@@ -88,7 +89,11 @@ function SessionMenuItems({
         Edit session
       </DropdownMenuItem>
       {/* "Move to …" - the remote hosts' (Pro, a private plan › M7). */}
-      {MoveSessionItems && sessionId && !archived && <MoveSessionItems sessionId={sessionId} />}
+      {MoveSessionItems && sessionId && !archived && (
+        <SlotBoundary name="session-menu-items">
+          <MoveSessionItems sessionId={sessionId} />
+        </SlotBoundary>
+      )}
       <DropdownMenuSeparator />
       <DropdownMenuItem onSelect={onToggleArchive} className={ITEM_CLASS}>
         {archived ? (

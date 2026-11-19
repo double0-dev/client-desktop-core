@@ -459,6 +459,12 @@ export type RendererExtension = {
   /** Items at the right end of a session's status bar, after the Inputs list. */
   statusBarItems?: readonly ComponentType<StatusBarItemProps>[];
   alerts?: AlertsSlot;
+  /**
+   * A render failure a boundary caught (components/slot-boundary.tsx): a
+   * caught error never reaches the window's global error handlers, so this
+   * is the extension's only chance to record it. Absent: logged only.
+   */
+  reportError?(error: unknown, where: string): void;
 };
 
 /** What the session's status bar hands an extension's item. */

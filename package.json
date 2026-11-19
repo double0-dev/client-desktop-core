@@ -1,6 +1,6 @@
 {
   "name": "double0-desktop",
-  "version": "0.8.4",
+  "version": "0.8.6",
   "license": "Apache-2.0",
   "description": "double0 desktop client (Electron + TanStack Router)",
   "main": "./out/main/index.js",

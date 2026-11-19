@@ -40,7 +40,12 @@ const preload = [
   readFileSync(join(ROOT, 'src/preload/index.ts'), 'utf8'),
   ...(PRO ? sourceFiles(join(ROOT, 'pro/preload')).map((f) => readFileSync(f, 'utf8')) : []),
 ].join('\n');
-const invoked = new Set(matches(preload, /ipcRenderer\.invoke\(\s*'([^']+)'/g));
+const invoked = new Set([
+  ...matches(preload, /ipcRenderer\.invoke\(\s*'([^']+)'/g),
+  // An invoke whose locked answer becomes a default (an extension preload's
+  // `invokeOr(<default>, '<channel>', ...)`): the channel is the second argument.
+  ...matches(preload, /\binvokeOr\(\s*[^']*?,\s*'([^']+)'/g),
+]);
 const sent = new Set(matches(preload, /ipcRenderer\.send\(\s*'([^']+)'/g));
 const listenedFor = new Set(matches(preload, /ipcRenderer\.(?:on|once)\(\s*'([^']+)'/g));
 

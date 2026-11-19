@@ -28,6 +28,7 @@ import { setFileLinkContext } from '@renderer/lib/terminal/file-links';
 import { requestEditorReveal } from '@renderer/lib/workspace/editor-reveal';
 import { WorkspaceLayoutContext } from '@renderer/lib/workspace/layout-context';
 import { TerminalFindBar } from '@renderer/routes/_app/-components/workspace/terminal-find-bar';
+import { SlotBoundary } from '@renderer/components/slot-boundary';
 import { rendererExtension } from '@renderer/lib/extension/registry';
 import {
   noteTerminalViewMounted,
@@ -761,17 +762,19 @@ export function TerminalView({
       )}
       {findRequest && <TerminalFindBar ptyId={ptyId} request={findRequest} />}
       {!findRequest && openBrowser && ServerChip && (
-        <ServerChip
-          ptyId={ptyId}
-          onOpen={(url) =>
-            rendererExtension().browser?.openPreviewBeside(
-              openBrowser,
-              layoutRef.current,
-              ptyId,
-              url,
-            )
-          }
-        />
+        <SlotBoundary name="terminal-chip">
+          <ServerChip
+            ptyId={ptyId}
+            onOpen={(url) =>
+              rendererExtension().browser?.openPreviewBeside(
+                openBrowser,
+                layoutRef.current,
+                ptyId,
+                url,
+              )
+            }
+          />
+        </SlotBoundary>
       )}
     </div>
   );

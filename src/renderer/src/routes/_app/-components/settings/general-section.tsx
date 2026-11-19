@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ChevronDown, RotateCcw } from 'lucide-react';
+import { SlotBoundary } from '@renderer/components/slot-boundary';
 import { rendererExtension } from '@renderer/lib/extension/registry';
 import { SettingsJsonDialog } from '@renderer/routes/_app/-components/settings/settings-json-dialog';
 import { ThirdPartyNoticesDialog } from '@renderer/routes/_app/-components/settings/third-party-notices-dialog';
@@ -145,7 +146,9 @@ export function GeneralSettingsSection() {
       {/* The signed-in account - Pro (a private plan: login is Pro); the core build has none. */}
       {AccountSection && (
         <>
-          <AccountSection />
+          <SlotBoundary name="account-section">
+            <AccountSection />
+          </SlotBoundary>
           <div className="h-px w-full bg-border" />
         </>
       )}
@@ -175,10 +178,16 @@ export function GeneralSettingsSection() {
         </div>
         {/* Updates rows + the auto-check toggle (design `Label/Settings ·
             Update states`) - the extension's, if any. */}
-        {UpdatesRows && <UpdatesRows />}
+        {UpdatesRows && (
+          <SlotBoundary name="settings-rows">
+            <UpdatesRows />
+          </SlotBoundary>
+        )}
         {/* The extension's rows (the official build's crash-report switch). */}
         {GeneralRows.map((Row, i) => (
-          <Row key={i} />
+          <SlotBoundary key={i} name="general-row">
+            <Row />
+          </SlotBoundary>
         ))}
         <SettingActionRow
           title="Open-source licences"

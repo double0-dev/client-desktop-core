@@ -3,11 +3,9 @@ import { Outlet, createFileRoute, redirect, useParams } from '@tanstack/react-ro
 import { LOCAL_USER } from '@renderer/lib/local-user';
 import { rendererExtension } from '@renderer/lib/extension/registry';
 import { observeAutoNaming } from '@renderer/lib/session/auto-name';
-import { WorkspaceHost } from '@renderer/routes/_app/-components/workspace/workspace';
-import { SearchEverywhere } from '@renderer/routes/_app/-components/search-everywhere/search-everywhere';
 import { useProjectAccent } from '@renderer/lib/settings/use-project-accent';
 import { getProjectScope, scopedRedirect } from '@renderer/lib/workspace/project-scope';
-import { NewProjectHost } from '@renderer/routes/_app/-components/new-project-host';
+import { AppSurfaces } from '@renderer/routes/_app/-components/app-surfaces';
 
 export const Route = createFileRoute('/_app')({
   // The sign-in gate is the extension's (a private plan ›
@@ -33,10 +31,6 @@ export const Route = createFileRoute('/_app')({
 });
 
 function AppLayout() {
-  // The remote hosts' dialogs - Pro's (a private plan › M7).
-  const HostDialogs = rendererExtension().hosts?.AppDialogs;
-  // A cover over the whole window while the app may not be used (AuthSlot.Lock).
-  const Lock = rendererExtension().auth?.Lock;
   const { user } = Route.useRouteContext();
   // Auto-named sessions (launched without a name) follow their conversation
   // terminal's title reports; each window watches the shells it owns.
@@ -50,19 +44,7 @@ function AppLayout() {
   return (
     <>
       <Outlet />
-      {/* Session workspaces live here (above the routed pages) so their terminals
-          stay alive while navigating between sessions and projects. */}
-      <WorkspaceHost user={user} />
-      {/* Global "Search Everywhere" palette (double-Shift), mounted app-level so
-          it opens from anywhere - a session or a project's session-less view. */}
-      <SearchEverywhere userId={user.id} />
-      {/* The window's one New project dialog (lib/projects/new-project-request.ts):
-          it must open with no project at all, so it belongs to no workspace. */}
-      <NewProjectHost ownerId={user.id} />
-      {/* ssh needs the user for a remote host: its login terminal (plan 28). */}
-      {HostDialogs && <HostDialogs />}
-      {/* Last, over everything, the workspace still mounted under it. */}
-      {Lock && <Lock />}
+      <AppSurfaces user={user} />
     </>
   );
 }

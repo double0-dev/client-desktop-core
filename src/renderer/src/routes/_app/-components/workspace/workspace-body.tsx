@@ -3,6 +3,7 @@ import { currentHostOfPath } from '@renderer/lib/hosts/host-of-path';
 import { TerminalLayer } from '@renderer/routes/_app/-components/workspace/terminal-layer';
 import { EditorLayer } from '@renderer/routes/_app/-components/workspace/editor-layer';
 import { UnavailableTabLayer } from '@renderer/routes/_app/-components/workspace/unavailable-tab-layer';
+import { SlotBoundary } from '@renderer/components/slot-boundary';
 import { rendererExtension } from '@renderer/lib/extension/registry';
 import { LayoutGeometry } from '@renderer/routes/_app/-components/workspace/layout-geometry';
 import { DragLayer, DropIndicator } from '@renderer/routes/_app/-components/workspace/drag-layer';
@@ -267,28 +268,32 @@ export function WorkspaceBody({
       />
       {/* Browser tabs are Pro (a private plan › M5); none in the core build. */}
       {BrowserLayer && (
-        <BrowserLayer
-          layout={layout}
-          rects={rects}
-          version={version}
-          sessionId={browserSessionId ?? null}
-          cwd={cwd ?? null}
-          isActiveSession={isActiveSession}
-          onActivatePane={onActivatePane}
-        />
+        <SlotBoundary name="page-layer">
+          <BrowserLayer
+            layout={layout}
+            rects={rects}
+            version={version}
+            sessionId={browserSessionId ?? null}
+            cwd={cwd ?? null}
+            isActiveSession={isActiveSession}
+            onActivatePane={onActivatePane}
+          />
+        </SlotBoundary>
       )}
       {/* An extension's view over the tabs; none in the core build. */}
       {ViewLayer && (
-        <ViewLayer
-          sessionId={sessionId}
-          hostId={currentHostOfPath(cwd)}
-          layout={layout}
-          rects={rects}
-          version={version}
-          isActiveSession={isActiveSession}
-          onActivatePane={onActivatePane}
-          onShowTerminal={(tabId) => dispatch({ type: 'setTabView', tabId, view: null })}
-        />
+        <SlotBoundary name="view-layer">
+          <ViewLayer
+            sessionId={sessionId}
+            hostId={currentHostOfPath(cwd)}
+            layout={layout}
+            rects={rects}
+            version={version}
+            isActiveSession={isActiveSession}
+            onActivatePane={onActivatePane}
+            onShowTerminal={(tabId) => dispatch({ type: 'setTabView', tabId, view: null })}
+          />
+        </SlotBoundary>
       )}
       <UnavailableTabLayer
         layout={layout}

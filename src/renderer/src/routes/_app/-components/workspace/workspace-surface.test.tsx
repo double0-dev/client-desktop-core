@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceStatusBar } from '@renderer/routes/_app/-components/workspace/workspace-surface';
 import { GitContext, type GitStatusValue } from '@renderer/lib/git/context';
 import type { GitStatus } from '@renderer/lib/git/types';
@@ -108,5 +108,34 @@ describe("the workspace status bar's extension items", () => {
     const item = screen.getByTestId('gadget-item');
     // fakeLayoutContext's one tab is the conversation shell: the item speaks for it.
     expect(item).toHaveTextContent('conversation:session-1 /Users/emmaw/code/acme');
+  });
+
+  it("keeps the bar and the other items when one of the extension's items throws", () => {
+    // One item that kept a reply of the wrong shape replaced the whole window
+    // with an error screen at launch (2026-11-18): an item fails alone.
+    const reportError = vi.fn();
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    installRendererExtension({
+      edition: 'pro',
+      railTools: [],
+      reportError,
+      statusBarItems: [
+        () => {
+          throw new Error('gadget broke');
+        },
+        () => <span data-testid="gadget-item">fine</span>,
+      ],
+    });
+    render(
+      <GitContext.Provider value={{ status: REPO } as unknown as GitStatusValue}>
+        <WorkspaceStatusBar sessionPath="/Users/emmaw/code/acme" />
+      </GitContext.Provider>,
+      { wrapper: withLayout(fakeLayoutContext()) },
+    );
+    expect(screen.getByTestId('gadget-item')).toHaveTextContent('fine');
+    expect(screen.getByText('fix-auth-tokens')).toBeInTheDocument();
+    // Recorded through the extension, never silently dropped.
+    expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'status-bar-item');
+    quiet.mockRestore();
   });
 });

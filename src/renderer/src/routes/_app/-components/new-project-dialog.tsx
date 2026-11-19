@@ -15,6 +15,7 @@ import { ProjectFormFields } from '@renderer/routes/_app/-components/project-for
 import { useLiveQuery } from '@tanstack/react-db';
 import { projectsCollection } from '@renderer/lib/collections';
 import { getHost } from '@renderer/lib/hosts/host-directory';
+import { SlotBoundary } from '@renderer/components/slot-boundary';
 import { rendererExtension } from '@renderer/lib/extension/registry';
 import { folderName } from '@renderer/lib/path-within';
 import { projectPathConflict } from '../../../../../main/host-of-path';
@@ -121,7 +122,11 @@ export function NewProjectDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {hostFields && <hostFields.MachinePicker value={hostId} onChange={changeHost} />}
+          {hostFields && (
+            <SlotBoundary name="machine-picker">
+              <hostFields.MachinePicker value={hostId} onChange={changeHost} />
+            </SlotBoundary>
+          )}
 
           <ProjectFormFields
             idPrefix="project"
@@ -143,15 +148,17 @@ export function NewProjectDialog({
               : {})}
           />
           {hostId && pickingRemote && hostFields && (
-            <hostFields.RemoteFolderPicker
-              hostId={hostId}
-              onCancel={() => setPickingRemote(false)}
-              onPick={(picked) => {
-                pickPath(picked);
-                setPickingRemote(false);
-                setConflict(null);
-              }}
-            />
+            <SlotBoundary name="remote-folder-picker">
+              <hostFields.RemoteFolderPicker
+                hostId={hostId}
+                onCancel={() => setPickingRemote(false)}
+                onPick={(picked) => {
+                  pickPath(picked);
+                  setPickingRemote(false);
+                  setConflict(null);
+                }}
+              />
+            </SlotBoundary>
           )}
           {conflict && (
             <p

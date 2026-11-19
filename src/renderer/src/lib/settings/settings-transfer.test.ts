@@ -89,6 +89,10 @@ const MACHINE_LOCAL_KEYS: Record<string, string> = {
     'which sessions have the file explorer open - session memory keyed by this machine’s session ids',
   'double0-last-project-session': 'which session was open last per project - session memory',
   'double0-last-project': 'which project was open last - session memory, drives the startup screen',
+  'double0-start-fresh':
+    'window memory (sessionStorage): the next reload skips restoring the last view - lib/start-fresh.ts',
+  'double0-crash-at':
+    'window memory (sessionStorage): when the window last hit the error screen - the crash-loop check',
   'double0-repo-choice':
     'which child repo each tool’s picker shows per folder - keyed by this machine’s absolute paths',
   // A project window's own copy of the chrome keys (lib/workspace/project-scope.ts

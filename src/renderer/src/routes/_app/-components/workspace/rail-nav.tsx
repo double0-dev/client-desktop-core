@@ -32,6 +32,7 @@ import {
 } from '@renderer/lib/workspace/dock-state';
 import { useVerticalTabs } from '@renderer/lib/workspace/vertical-tabs';
 import { cn } from '@renderer/lib/utils';
+import { SlotBoundary } from '@renderer/components/slot-boundary';
 
 /**
  * The workspace's left icon rail. The dock panel ids/rules live in
@@ -178,7 +179,11 @@ function RailIcon({
       )}
     >
       <Icon className="size-5" />
-      {RailToolBadge && <RailToolBadge />}
+      {RailToolBadge && (
+        <SlotBoundary name={`${id}-badge`}>
+          <RailToolBadge />
+        </SlotBoundary>
+      )}
       {id === 'sessions' && <SessionsRailBadge count={runningSessions} />}
     </button>
   );

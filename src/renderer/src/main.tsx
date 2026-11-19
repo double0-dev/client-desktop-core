@@ -23,6 +23,9 @@ import { routeTree } from './routeTree.gen';
 import { proRenderer } from '@pro/renderer';
 import { installRendererExtension } from './lib/extension/registry';
 import { prepareTerminalEngine } from './lib/terminal/engine';
+import { beginBoot, windowActions } from './lib/start-fresh';
+import { SlotBoundary } from './components/slot-boundary';
+import { AppErrorScreen, RouteErrorScreen } from './components/app-error-screen';
 
 installDemoHooks(window, import.meta.env.DEV);
 // Before anything renders: the router layout and a torn-off window (no
@@ -36,12 +39,19 @@ initAppFont();
 initAccentColor();
 initLiveMotion();
 
+// Before anything routes: whether this boot skips restoring the last view
+// (lib/start-fresh.ts - the error screen's Start fresh, or a crash loop).
+const startingFresh = beginBoot();
+
 const hashHistory = createHashHistory();
 const router = createRouter({
   routeTree,
   history: hashHistory,
   defaultPreloadStaleTime: 0,
   scrollRestoration: true,
+  // A route that throws shows the window's error screen (with its ways out),
+  // never the router's bare default.
+  defaultErrorComponent: RouteErrorScreen,
 });
 
 declare module '@tanstack/react-router' {
@@ -124,6 +134,12 @@ async function boot(): Promise<void> {
   const terminalEngineReady = prepareTerminalEngine();
   const payload = (await window.api?.window?.getInitialPayload()) ?? null;
   const detached = payload?.kind === 'detached' || payload?.kind === 'session';
+  // A torn-off window shows only what it was handed: starting it fresh means
+  // giving that back - closing hands its tabs to the window they came from.
+  if (detached && startingFresh) {
+    windowActions.close();
+    return;
+  }
   if (payload?.kind === 'project') {
     const { projectId, projectName, sessions } = payload.project;
     setProjectScope(
@@ -133,6 +149,10 @@ async function boot(): Promise<void> {
     // Land on the project (routes/index.tsx picks its last-viewed session) -
     // never on whatever hash a reload left, if it was outside the scope.
     document.title = projectName;
+    hashHistory.replace('/');
+  } else if (startingFresh && !detached) {
+    // A reload keeps the address, and the address IS the last view: start
+    // where the app opens (routes/index.tsx reads the same flag).
     hashHistory.replace('/');
   }
 
@@ -162,10 +182,16 @@ async function boot(): Promise<void> {
   const root = ReactDOM.createRoot(rootElement);
   root.render(
     <StrictMode>
+      {/* Whatever escapes every inner boundary still lands on the error
+          screen, never a blank window. */}
       {DetachedWindow ? (
-        <DetachedWindow payload={payload as DetachedWindowPayload} />
+        <SlotBoundary name="window" fallback={(error) => <AppErrorScreen detached error={error} />}>
+          <DetachedWindow payload={payload as DetachedWindowPayload} />
+        </SlotBoundary>
       ) : (
-        <RouterProvider router={router} />
+        <SlotBoundary name="window" fallback={(error) => <AppErrorScreen error={error} />}>
+          <RouterProvider router={router} />
+        </SlotBoundary>
       )}
     </StrictMode>,
   );

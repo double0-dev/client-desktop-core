@@ -4,6 +4,7 @@ import {
   settingsSections,
   type SectionId,
 } from '@renderer/routes/_app/-components/settings/settings-sections';
+import { SlotBoundary } from '@renderer/components/slot-boundary';
 import { rendererExtension } from '@renderer/lib/extension/registry';
 import {
   Dialog,
@@ -130,7 +131,9 @@ export function SettingsDialog({
           <div className="min-h-0 flex-1 overflow-y-auto px-[22px] py-[18px]">
             <SettingsHeaderContext.Provider value={setHeaderOverride}>
               {ProBody ? (
-                <ProBody />
+                <SlotBoundary key={active.id} name={`settings-${active.id}`}>
+                  <ProBody />
+                </SlotBoundary>
               ) : active.id === 'general' ? (
                 <GeneralSettingsSection />
               ) : active.id === 'projects' ? (

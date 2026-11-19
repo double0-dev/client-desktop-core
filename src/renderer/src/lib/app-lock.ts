@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from 'react';
+
 /**
  * Whether something covers the whole window and owns the keyboard - the
  * extension's lock (`AuthSlot.Lock`) marks `<html>` while it shows. The
@@ -15,4 +17,23 @@ export function isAppLocked(doc: Document = document): boolean {
 export function setAppLocked(locked: boolean, doc: Document = document): void {
   if (locked) doc.documentElement.setAttribute(APP_LOCKED_ATTR, '');
   else doc.documentElement.removeAttribute(APP_LOCKED_ATTR);
+}
+
+/**
+ * Whether the window is locked, as React state: follows the attribute, so a
+ * component can stand back while a cover owns the window (the error screen
+ * waits under it - rendered inside the inert root above the cover, it hid
+ * the cover's own buttons and took no click itself).
+ */
+export function useAppLocked(): boolean {
+  return useSyncExternalStore(subscribeAppLock, () => isAppLocked());
+}
+
+function subscribeAppLock(onChange: () => void): () => void {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: [APP_LOCKED_ATTR],
+  });
+  return () => observer.disconnect();
 }

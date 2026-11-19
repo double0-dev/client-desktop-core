@@ -17,6 +17,8 @@ import { GitStatusProvider } from '@renderer/routes/_app/-components/workspace/g
 import { GIT_REPO_TOOL, RepoChoiceContext, useRepoChoice } from '@renderer/lib/git/repo-choice';
 import { integrationHooks } from '@renderer/lib/integrations';
 import { railTool, rendererExtension } from '@renderer/lib/extension/registry';
+import { SlotBoundary } from '@renderer/components/slot-boundary';
+import { AppErrorScreen } from '@renderer/components/app-error-screen';
 import type { RailTool } from '@renderer/lib/extension/types';
 import { FileExplorer } from '@renderer/routes/_app/-components/workspace/file-explorer';
 import { WorkspaceShortcuts } from '@renderer/routes/_app/-components/workspace/workspace-shortcuts';
@@ -153,43 +155,58 @@ export function DetachedWindow({ payload }: { payload: DetachedWindowPayload }) 
 
   return (
     <>
-      <WorkspaceLayoutProvider
-        sessionId={seed.sessionId}
-        initial={seed.initial}
-        primaryTitle={session ? sessionAgentLabel(session) : undefined}
-        // The session's free-text start command; pre-column sessions (no
-        // startCommand) fall back to deriving it from the agent label.
-        startupCommand={session ? sessionTerminalCommand(session) : undefined}
-        runOnNewTerminal={session?.runOnNewTerminal ?? true}
-        inView={session ? runsInView(session) : false}
+      {/* A failure in the surface shows the window's error screen, never a
+          blank window - and never takes the cover below with it. */}
+      <SlotBoundary
+        name="detached-window"
+        fallback={(error) => <AppErrorScreen detached error={error} />}
       >
-        {/* Both kinds stream their live layout home: a session window so the whole
+        <WorkspaceLayoutProvider
+          sessionId={seed.sessionId}
+          initial={seed.initial}
+          primaryTitle={session ? sessionAgentLabel(session) : undefined}
+          // The session's free-text start command; pre-column sessions (no
+          // startCommand) fall back to deriving it from the agent label.
+          startupCommand={session ? sessionTerminalCommand(session) : undefined}
+          runOnNewTerminal={session?.runOnNewTerminal ?? true}
+          inView={session ? runsInView(session) : false}
+        >
+          {/* Both kinds stream their live layout home: a session window so the whole
           session returns on close, a tab window so its terminals hop back into
           the app window on close. */}
-        {payload.kind === 'session' ? (
-          // A torn-off session keeps its diff comments (this window's own review).
-          <ReviewScopeProvider sessionId={seed.sessionId} agentCwd={seed.cwd}>
+          {payload.kind === 'session' ? (
+            // A torn-off session keeps its diff comments (this window's own review).
+            <ReviewScopeProvider sessionId={seed.sessionId} agentCwd={seed.cwd}>
+              <DetachedSurface
+                cwd={seed.cwd}
+                header={seed.header}
+                title={seed.title}
+                syncSessionId={seed.sessionId}
+                session={session}
+                initialCommandDock={seed.commandDock}
+              />
+            </ReviewScopeProvider>
+          ) : (
             <DetachedSurface
               cwd={seed.cwd}
               header={seed.header}
               title={seed.title}
-              syncSessionId={seed.sessionId}
+              syncSessionId={null}
               session={session}
               initialCommandDock={seed.commandDock}
             />
-          </ReviewScopeProvider>
-        ) : (
-          <DetachedSurface
-            cwd={seed.cwd}
-            header={seed.header}
-            title={seed.title}
-            syncSessionId={null}
-            session={session}
-            initialCommandDock={seed.commandDock}
-          />
-        )}
-      </WorkspaceLayoutProvider>
-      {Lock && <Lock />}
+          )}
+        </WorkspaceLayoutProvider>
+      </SlotBoundary>
+      {/* A cover that fails to render fails closed: the error screen covers too. */}
+      {Lock && (
+        <SlotBoundary
+          name="lock"
+          fallback={(error) => <AppErrorScreen cover detached error={error} />}
+        >
+          <Lock />
+        </SlotBoundary>
+      )}
     </>
   );
 }
@@ -539,13 +556,15 @@ function DetachedSurface({
             )}
           />
           <div style={{ width: drawerWidth }} className="flex shrink-0 flex-col overflow-hidden">
-            <SessionDrawer
-              onClose={() => setDrawerOpen(false)}
-              onOpenTool={() => {
-                if (cwd) requestWorktreeReveal(cwd);
-                if (GitTool) setToolOpen(true);
-              }}
-            />
+            <SlotBoundary name="drawer">
+              <SessionDrawer
+                onClose={() => setDrawerOpen(false)}
+                onOpenTool={() => {
+                  if (cwd) requestWorktreeReveal(cwd);
+                  if (GitTool) setToolOpen(true);
+                }}
+              />
+            </SlotBoundary>
           </div>
         </>
       )}
@@ -620,7 +639,9 @@ function DetachedSurface({
                         style={{ width: dockWidth }}
                         className="flex shrink-0 flex-col overflow-hidden bg-surface"
                       >
-                        <GitTool.DockPanel />
+                        <SlotBoundary name={`${GitTool.id}-panel`}>
+                          <GitTool.DockPanel />
+                        </SlotBoundary>
                       </div>
                       <div
                         role="separator"
@@ -635,7 +656,11 @@ function DetachedSurface({
                     </>
                   )}
                   {surface}
-                  {toolOpen && GitTool && <GitTool.View />}
+                  {toolOpen && GitTool && (
+                    <SlotBoundary name={`${GitTool.id}-view`}>
+                      <GitTool.View />
+                    </SlotBoundary>
+                  )}
                 </div>
                 {/* Mount-hidden (contents/hidden) so the dock stays mounted while
                 closed - its project_commands collection stays subscribed (live
@@ -643,14 +668,16 @@ function DetachedSurface({
                 command shells right away, matching the app window. */}
                 {BottomPanel && (
                   <div className={bottomPanelOpen ? 'contents' : 'hidden'}>
-                    <BottomPanel
-                      sessionId={syncSessionId}
-                      projectId={projectId}
-                      cwd={cwd}
-                      open={bottomPanelOpen}
-                      initialState={initialCommandDock}
-                      onClose={() => setCommandsOpen(false)}
-                    />
+                    <SlotBoundary name="bottom-panel">
+                      <BottomPanel
+                        sessionId={syncSessionId}
+                        projectId={projectId}
+                        cwd={cwd}
+                        open={bottomPanelOpen}
+                        initialState={initialCommandDock}
+                        onClose={() => setCommandsOpen(false)}
+                      />
+                    </SlotBoundary>
                   </div>
                 )}
               </div>

@@ -91,9 +91,25 @@ export function startupTarget(
 }
 
 /**
+ * Where a window that starts fresh opens (lib/start-fresh.ts): the top
+ * project's session list, with no session opened - the remembered project
+ * and session are what may have crashed the window. Nothing is forgotten:
+ * the next ordinary start resumes as before.
+ */
+export function freshStartTarget(projects: ProjectOpenable[]): OpenTarget {
+  if (projects.length === 0) return { to: '/workspace' };
+  const listed = projects.filter((p) => isListedProject(p, projects));
+  const project = sortProjects(listed.length ? listed : projects)[0];
+  return { to: '/workspace/$projectId', params: { projectId: project.id } };
+}
+
+/**
  * Where a view with no project to show goes (the no-project workspace, or a
  * session-less view whose project was deleted): wherever startup would open -
- * null while that is the bare no-project workspace it already is.
+ * null while that is the bare no-project workspace it already is. `fresh`:
+ * the window starts fresh (lib/start-fresh.ts) - where a fresh start opens,
+ * never the remembered session (the projects can load after the fresh start
+ * landed here, and healing into the last session reopened what crashed).
  */
 export function noProjectTarget(
   viewProjectId: string | null,
@@ -101,8 +117,11 @@ export function noProjectTarget(
   sessions: SessionOpenable[],
   lastProjectId: string | null,
   lastSessionOf: (projectId: string) => string | null,
+  fresh = false,
 ): OpenTarget | null {
-  const target = startupTarget(projects, sessions, lastProjectId, lastSessionOf);
+  const target = fresh
+    ? freshStartTarget(projects)
+    : startupTarget(projects, sessions, lastProjectId, lastSessionOf);
   return target.to === '/workspace' && viewProjectId == null ? null : target;
 }
 

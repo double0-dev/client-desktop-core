@@ -45,6 +45,7 @@ import {
   SessionMenu,
 } from '@renderer/routes/_app/-components/workspace/session-menu';
 import { GitStatusProvider } from '@renderer/routes/_app/-components/workspace/git-status-provider';
+import { SlotBoundary } from '@renderer/components/slot-boundary';
 import { onOpenToolRequest } from '@renderer/lib/workspace/open-tool';
 import { VerticalTabsPanel } from '@renderer/routes/_app/-components/workspace/vertical-tabs-panel';
 import { SessionRowDetail } from '@renderer/routes/_app/-components/workspace/session-row-detail';
@@ -93,6 +94,7 @@ import {
 import { launchSession } from '@renderer/lib/session/launch-session';
 import { confirmSessionDeletion } from '@renderer/lib/session/worktree-delete';
 import { lastProject, lastProjectSession } from '@renderer/lib/last-project-session';
+import { endStartFresh, isStartingFresh } from '@renderer/lib/start-fresh';
 import {
   afterProjectDeleted,
   noProjectTarget,
@@ -676,8 +678,14 @@ export const WorkspaceView = memo(function WorkspaceView({
   // On the session-less view of a project that does have sessions (e.g. history
   // back after creating the first one) - swap to its last-viewed session (else
   // its top one) instead.
+  // Not while the window starts fresh (lib/start-fresh.ts): the remembered
+  // session may be what crashed it - the user picks one, and from then on the
+  // window behaves as usual.
   useEffect(() => {
-    if (sessionId != null || projectSessions.length === 0) return;
+    if (sessionId != null) endStartFresh();
+  }, [sessionId]);
+  useEffect(() => {
+    if (sessionId != null || projectSessions.length === 0 || isStartingFresh()) return;
     const lastId = viewProjectId ? lastProjectSession(viewProjectId) : null;
     const target = pickProjectSession(projectSessions, lastId);
     if (!target) return;
@@ -696,6 +704,7 @@ export const WorkspaceView = memo(function WorkspaceView({
       allSessions,
       lastProject(),
       lastProjectSession,
+      isStartingFresh(),
     );
     if (target) goToTarget(navigate, target, { replace: true });
   }, [
@@ -1474,7 +1483,9 @@ export const WorkspaceView = memo(function WorkspaceView({
           className="flex shrink-0 flex-col overflow-hidden bg-surface"
         >
           {openTool ? (
-            <openTool.DockPanel />
+            <SlotBoundary key={openTool.id} name={`${openTool.id}-panel`}>
+              <openTool.DockPanel />
+            </SlotBoundary>
           ) : (
             <DockStack
               key={openPanels.join('|')}
@@ -1498,7 +1509,11 @@ export const WorkspaceView = memo(function WorkspaceView({
     ) : null;
 
   // A registered rail tool's content (the extension's).
-  const toolView = openTool ? <openTool.View /> : null;
+  const toolView = openTool ? (
+    <SlotBoundary key={openTool.id} name={`${openTool.id}-view`}>
+      <openTool.View />
+    </SlotBoundary>
+  ) : null;
 
   // The icon rail (see rail-nav.tsx - dnd-kit sortable clusters). A const so
   // the released/live branches below can mount the same rail in their
@@ -1715,14 +1730,16 @@ export const WorkspaceView = memo(function WorkspaceView({
                     overlay above. */}
                         {BottomPanel && (
                           <div className={bottomPanelOpen ? 'contents' : 'hidden'}>
-                            <BottomPanel
-                              sessionId={session.id}
-                              projectId={session.projectId}
-                              cwd={cwd}
-                              open={bottomPanelOpen}
-                              visible={bottomPanelOpen && isActiveSession}
-                              onClose={onToggleBottomPanel}
-                            />
+                            <SlotBoundary name="bottom-panel">
+                              <BottomPanel
+                                sessionId={session.id}
+                                projectId={session.projectId}
+                                cwd={cwd}
+                                open={bottomPanelOpen}
+                                visible={bottomPanelOpen && isActiveSession}
+                                onClose={onToggleBottomPanel}
+                              />
+                            </SlotBoundary>
                           </div>
                         )}
                       </div>
@@ -1779,18 +1796,29 @@ export const WorkspaceView = memo(function WorkspaceView({
                     toolView
                   ) : (
                     <div className="flex min-w-0 flex-1 flex-col overflow-y-auto px-12 py-10">
-                      <EmptyState
-                        className="flex-1 justify-center"
-                        icon={GitBranch}
-                        title="No sessions yet"
-                        description="Sessions are agent runs scoped to a task. Start your first one to put an agent to work in this project."
-                        action={
-                          <Button className="font-medium" onClick={() => setNewSessionOpen(true)}>
-                            <Plus className="size-4" />
-                            New session
-                          </Button>
-                        }
-                      />
+                      {projectSessions.length > 0 ? (
+                        // Only while the window starts fresh: otherwise the
+                        // project's last session opens by itself.
+                        <EmptyState
+                          className="flex-1 justify-center"
+                          icon={GitBranch}
+                          title="Pick a session"
+                          description="This window started without reopening your last view. Pick a session in the sidebar to carry on."
+                        />
+                      ) : (
+                        <EmptyState
+                          className="flex-1 justify-center"
+                          icon={GitBranch}
+                          title="No sessions yet"
+                          description="Sessions are agent runs scoped to a task. Start your first one to put an agent to work in this project."
+                          action={
+                            <Button className="font-medium" onClick={() => setNewSessionOpen(true)}>
+                              <Plus className="size-4" />
+                              New session
+                            </Button>
+                          }
+                        />
+                      )}
                     </div>
                   )}
                 </div>

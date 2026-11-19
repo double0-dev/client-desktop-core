@@ -1,7 +1,8 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { agentSessionsCollection, projectsCollection } from '@renderer/lib/collections';
 import { lastProject, lastProjectSession } from '@renderer/lib/last-project-session';
-import { startupTarget } from '@renderer/lib/startup-target';
+import { freshStartTarget, startupTarget } from '@renderer/lib/startup-target';
+import { isStartingFresh } from '@renderer/lib/start-fresh';
 import { getProjectScope } from '@renderer/lib/workspace/project-scope';
 
 /**
@@ -34,12 +35,15 @@ export const Route = createFileRoute('/')({
     const projects = scope
       ? projectsCollection.toArray.filter((p) => p.id === scope.projectId)
       : projectsCollection.toArray;
-    const target = startupTarget(
-      projects,
-      agentSessionsCollection.toArray,
-      scope?.projectId ?? lastProject(),
-      lastProjectSession,
-    );
+    // Starting fresh (lib/start-fresh.ts): a project's session list, nothing reopened.
+    const target = isStartingFresh()
+      ? freshStartTarget(projects)
+      : startupTarget(
+          projects,
+          agentSessionsCollection.toArray,
+          scope?.projectId ?? lastProject(),
+          lastProjectSession,
+        );
     if (target.to === '/sessions/$sessionId') {
       throw redirect({ to: target.to, params: target.params });
     }

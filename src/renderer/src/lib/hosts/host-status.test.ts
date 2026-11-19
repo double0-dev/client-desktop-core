@@ -8,7 +8,9 @@ import {
   applyHostStatuses,
   getHostStatus,
   onHostConnected,
+  refreshHostStatuses,
   resetHostStatusesForTest,
+  startHostStatusFeed,
   waitForHostStatus,
   type HostStatus,
 } from './host-status';
@@ -126,5 +128,42 @@ describe('waitForHostStatus', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('refreshHostStatuses', () => {
+  // The feed asks main once per window and then follows its pushes. An
+  // extension may refuse that first ask (its feature locked) and push
+  // nothing afterwards: it asks the feed to read again once it would answer.
+  it('asks main again for the statuses, without a second push subscription', async () => {
+    const statuses = vi
+      .fn<() => Promise<HostStatus[]>>()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([status('build-box', 'connected')]);
+    const onChanged = vi.fn(() => () => {});
+    Object.defineProperty(window, 'api', {
+      configurable: true,
+      writable: true,
+      value: { hosts: { statuses, onChanged } },
+    });
+    startHostStatusFeed();
+    await vi.waitFor(() => expect(statuses).toHaveBeenCalledTimes(1));
+    expect(getHostStatus('build-box')).toBeNull();
+    refreshHostStatuses();
+    await vi.waitFor(() => expect(getHostStatus('build-box')?.state).toBe('connected'));
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    Reflect.deleteProperty(window, 'api');
+  });
+
+  it('does nothing before the feed started - the first ask is still to come', () => {
+    const statuses = vi.fn(async () => []);
+    Object.defineProperty(window, 'api', {
+      configurable: true,
+      writable: true,
+      value: { hosts: { statuses, onChanged: () => () => {} } },
+    });
+    refreshHostStatuses();
+    expect(statuses).not.toHaveBeenCalled();
+    Reflect.deleteProperty(window, 'api');
   });
 });

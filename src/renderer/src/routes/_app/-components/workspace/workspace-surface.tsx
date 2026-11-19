@@ -3,6 +3,7 @@ import { unwatchFolder, watchFolder } from '@renderer/lib/workspace/watch-mode';
 import { CircleHelp, Folder, FolderTree, GitBranch, SquareTerminal } from 'lucide-react';
 import { WorkspaceBody } from '@renderer/routes/_app/-components/workspace/workspace-body';
 import { FileExplorer } from '@renderer/routes/_app/-components/workspace/file-explorer';
+import { SlotBoundary } from '@renderer/components/slot-boundary';
 import { rendererExtension } from '@renderer/lib/extension/registry';
 import { KeptRunningBanner } from '@renderer/routes/_app/-components/workspace/kept-running-banner';
 import { UnreachableBanner } from '@renderer/routes/_app/-components/workspace/unreachable-banner';
@@ -237,7 +238,11 @@ export function WorkspaceSurface({
             like the question banner below it - and, once ever, the "sessions
             kept running while double0 was closed" notice (main window only).
             The update banner is the official build's (a private plan › decision 12). */}
-        {UpdateBanner && <UpdateBanner />}
+        {UpdateBanner && (
+          <SlotBoundary name="banner">
+            <UpdateBanner />
+          </SlotBoundary>
+        )}
         <KeptRunningBanner />
         <UnreachableBanner />
         {question && (
@@ -289,7 +294,9 @@ export function WorkspaceSurface({
                 style={{ width: drawerWidth }}
                 className="flex shrink-0 flex-col overflow-hidden"
               >
-                <SessionDrawer onClose={() => setDrawerOpen(false)} onOpenTool={onOpenTool} />
+                <SlotBoundary name="drawer">
+                  <SessionDrawer onClose={() => setDrawerOpen(false)} onOpenTool={onOpenTool} />
+                </SlotBoundary>
               </div>
             </>
           )}
@@ -362,7 +369,10 @@ export function WorkspaceStatusBar({ sessionPath }: { sessionPath: string | null
       <div className="flex-1" />
       <InputsStatusItem focusedPtyId={focusedPtyId} />
       {items.map((Item, i) => (
-        <Item key={i} focusedPtyId={focusedPtyId} sessionPath={sessionPath} />
+        // Each item alone: one that fails leaves the bar and its neighbours (2026-11-18).
+        <SlotBoundary key={i} name="status-bar-item">
+          <Item focusedPtyId={focusedPtyId} sessionPath={sessionPath} />
+        </SlotBoundary>
       ))}
     </div>
   );

@@ -55,9 +55,25 @@ export function startHostStatusFeed(): void {
   if (started || !bridge) return;
   started = true;
   bridge.onChanged(applyHostStatuses);
+  askStatuses(bridge);
+}
+
+function askStatuses(bridge: HostStatusFeed): void {
   void bridge.statuses().then((list) => {
     if (Array.isArray(list)) applyHostStatuses(list);
   });
+}
+
+/**
+ * Ask main for every status again. The feed asks once and then follows the
+ * pushes, which come only on a change - an extension whose first answer was
+ * a refusal (a feature that was not available then) calls this once it
+ * would answer, or the window knows no host until a restart. A feed not
+ * started yet is left alone: its first ask is still to come.
+ */
+export function refreshHostStatuses(): void {
+  const bridge = hostsBridge();
+  if (started && bridge) askStatuses(bridge);
 }
 
 export function getHostStatus(id: string | null | undefined): HostStatus | null {
